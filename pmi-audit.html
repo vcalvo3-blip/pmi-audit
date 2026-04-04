@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>PMI Audit · Toma de Datos</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --green: #00e676;
+    --yellow: #ffd600;
+    --red: #ff1744;
+    --text: #e8f0fe;
+    --muted: #4a5568;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Syne', sans-serif;
+
+    /* Handler colors */
+    --dc4: #3b82f6;
+    --dd8: #8b5cf6;
+    --eju: #f59e0b;
+    --hu3: #10b981;
+    --hs1: #ec4899;
+    --exs: #f97316;
+    --ryr: #ef4444;
+    --ewg: #06b6d4;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--mono);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* HEADER */
+  .header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .header-title {
+    font-family: var(--sans);
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    flex: 1;
+  }
+  .header-title span { color: var(--text); }
+  .clock {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    background: rgba(0,212,255,0.1);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,212,255,0.2);
+    min-width: 55px;
+    text-align: center;
+  }
+
+  /* MODE SELECTOR */
+  .mode-bar {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  .mode-btn {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .mode-btn.active-escalas {
+    background: rgba(0,212,255,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .mode-btn.active-equipajes {
+    background: rgba(255,107,53,0.15);
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+
+  /* UPLOAD AREA */
+  .upload-area {
+    margin: 16px;
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+  }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: var(--accent);
+    background: rgba(0,212,255,0.05);
+  }
+  .upload-icon { font-size: 36px; margin-bottom: 10px; }
+  .upload-title {
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .upload-sub { font-size: 11px; color: var(--muted); }
+  #fileInput { display: none; }
+
+  /* FILTERS */
+  .filters {
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .filter-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .filter-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    min-width: 50px;
+  }
+  .handler-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+  }
+  .chip {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    opacity: 0.4;
+    font-family: var(--mono);
+  }
+  .chip.selected { opacity: 1; }
+  .chip-DC4 { background: rgba(59,130,246,0.2); border-color: #3b82f6; color: #93c5fd; }
+  .chip-DC4.selected { background: rgba(59,130,246,0.4); }
+  .chip-DD8 { background: rgba(139,92,246,0.2); border-color: #8b5cf6; color: #c4b5fd; }
+  .chip-DD8.selected { background: rgba(139,92,246,0.4); }
+  .chip-EJU { background: rgba(245,158,11,0.2); border-color: #f59e0b; color: #fcd34d; }
+  .chip-EJU.selected { background: rgba(245,158,11,0.4); }
+  .chip-HU3 { background: rgba(16,185,129,0.2); border-color: #10b981; color: #6ee7b7; }
+  .chip-HU3.selected { background: rgba(16,185,129,0.4); }
+  .chip-HS1 { background: rgba(236,72,153,0.2); border-color: #ec4899; color: #f9a8d4; }
+  .chip-HS1.selected { background: rgba(236,72,153,0.4); }
+  .chip-EXS { background: rgba(249,115,22,0.2); border-color: #f97316; color: #fdba74; }
+  .chip-EXS.selected { background: rgba(249,115,22,0.4); }
+  .chip-RYR { background: rgba(239,68,68,0.2); border-color: #ef4444; color: #fca5a5; }
+  .chip-RYR.selected { background: rgba(239,68,68,0.4); }
+  .chip-EWG { background: rgba(6,182,212,0.2); border-color: #06b6d4; color: #67e8f9; }
+  .chip-EWG.selected { background: rgba(6,182,212,0.4); }
+
+  .time-filter {
+    display: flex;
+    gap: 6px;
+    flex: 1;
+  }
+  .time-input {
+    flex: 1;
+    padding: 6px 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    text-align: center;
+  }
+  .time-input:focus { outline: none; border-color: var(--accent); }
+
+  /* STATS BAR */
+  .stats-bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 56px;
+    padding: 6px 10px;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .stat-num {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .stat-label { font-size: 9px; color: var(--muted); margin-top: 2px; text-transform: uppercase; }
+
+  /* FLIGHT LIST */
+  .flight-list {
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .flight-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .flight-card.next-flight {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 20px rgba(0,212,255,0.15);
+  }
+  .flight-card.next-flight::before {
+    content: 'PRÓXIMO';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0,212,255,0.15);
+    padding: 2px 7px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+  }
+  .flight-card.audited {
+    opacity: 0.45;
+    border-style: dashed;
+  }
+  .flight-card.audited::after {
+    content: '✓ AUDITADO';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-15deg);
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--green);
+    opacity: 0.3;
+    pointer-events: none;
+    font-family: var(--sans);
+  }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .flight-num {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 1px;
+    flex: 1;
+  }
+  .handler-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 5px;
+    font-family: var(--mono);
+  }
+  .origin-tag {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .card-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .field-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+  }
+  .field-value {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .field-value.eta { color: var(--yellow); }
+  .field-value.gate-val { color: var(--accent); }
+  .field-value.cinta-val { color: var(--accent2); }
+  .field-value.editable {
+    border-bottom: 1px dashed var(--muted);
+    cursor: pointer;
+    padding-bottom: 1px;
+  }
+  .field-value.editable:hover { border-color: var(--accent); color: var(--accent); }
+
+  .card-bottom {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .status-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .status-INBLOCK { background: rgba(0,230,118,0.15); color: var(--green); }
+  .status-LANDED { background: rgba(0,230,118,0.08); color: #81c784; }
+  .status-FINAL { background: rgba(255,214,0,0.15); color: var(--yellow); }
+  .status-FIR { background: rgba(255,214,0,0.08); color: #fff176; }
+  .status-FLYING { background: rgba(0,212,255,0.1); color: var(--accent); }
+  .status-INITIAL, .status-SCHEDULED { background: rgba(74,85,104,0.3); color: var(--muted); }
+
+  .matricula {
+    font-size: 11px;
+    color: var(--muted);
+    flex: 1;
+    text-align: right;
+  }
+
+  .audit-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .audit-btn-do {
+    background: rgba(0,230,118,0.15);
+    color: var(--green);
+    border: 1px solid rgba(0,230,118,0.3);
+  }
+  .audit-btn-do:hover { background: rgba(0,230,118,0.3); }
+  .audit-btn-undo {
+    background: rgba(74,85,104,0.3);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+
+  /* EDIT MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 200;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    padding: 24px 20px;
+    width: 100%;
+    max-width: 480px;
+  }
+  .modal-title {
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  .modal-field { margin-bottom: 14px; }
+  .modal-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .modal-input {
+    width: 100%;
+    padding: 10px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .modal-input:focus { outline: none; border-color: var(--accent); }
+  .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-btn {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .modal-btn-save { background: var(--accent); color: #000; }
+  .modal-btn-cancel { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  /* EMPTY */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-text { font-family: var(--sans); font-size: 14px; font-weight: 700; }
+
+  /* NEXT indicator pulse */
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 1px var(--accent), 0 0 15px rgba(0,212,255,0.1); }
+    50% { box-shadow: 0 0 0 1px var(--accent), 0 0 25px rgba(0,212,255,0.3); }
+  }
+  .flight-card.next-flight { animation: pulse-border 2s ease-in-out infinite; }
+
+  .no-data-msg {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .mat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .mat-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    min-width: 34px;
+  }
+  .mat-btn {
+    flex: 1;
+    padding: 8px 14px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.25);
+    border-radius: 8px;
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1.5px;
+    text-align: center;
+    transition: all 0.15s;
+  }
+  .mat-btn:active { background: rgba(0,212,255,0.22); transform: scale(0.97); }
+  .mat-btn.copied {
+    background: rgba(0,230,118,0.15);
+    border-color: rgba(0,230,118,0.4);
+    color: var(--green);
+  }
+  .mat-edit {
+    padding: 8px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mat-edit:hover { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-title">PMI <span>AUDIT</span></div>
+  <div class="clock" id="clock">--:--</div>
+</div>
+
+<!-- MODE -->
+<div class="mode-bar">
+  <button class="mode-btn active-escalas" id="btn-escalas" onclick="setMode('escalas')">✈ Escalas · Gates</button>
+  <button class="mode-btn" id="btn-equipajes" onclick="setMode('equipajes')">🧳 Equipajes · Cintas</button>
+</div>
+
+<!-- UPLOAD -->
+<div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+  <div class="upload-icon">📂</div>
+  <div class="upload-title">Cargar listado eSIA</div>
+  <div class="upload-sub">Arrastra el .xls aquí o toca para seleccionar</div>
+  <input type="file" id="fileInput" accept=".xls,.xlsx,.html,.htm" onchange="handleFile(event)">
+</div>
+
+<!-- FILTERS (hidden until data loaded) -->
+<div class="filters" id="filtersSection" style="display:none">
+  <div class="filter-row">
+    <span class="filter-label">Handler</span>
+    <div class="handler-chips" id="handlerChips"></div>
+  </div>
+  <div class="filter-row">
+    <span class="filter-label">Hora</span>
+    <div class="time-filter">
+      <input type="time" class="time-input" id="timeFrom" onchange="renderFlights()" placeholder="desde">
+      <span style="color:var(--muted);align-self:center">—</span>
+      <input type="time" class="time-input" id="timeTo" onchange="renderFlights()" placeholder="hasta">
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-bar" id="statsBar" style="display:none"></div>
+
+<!-- FLIGHTS -->
+<div class="flight-list" id="flightList"></div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">Editar vuelo</div>
+    <div class="modal-field">
+      <div class="modal-label" id="modalFieldLabel">Gate / Stand</div>
+      <input type="text" class="modal-input" id="modalInput" placeholder="">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">Cinta</div>
+      <input type="text" class="modal-input" id="modalInputCinta" placeholder="">
+    </div>
+    <div class="modal-field">
+      <div class="modal-label">ETA</div>
+      <input type="time" class="modal-input" id="modalInputEta">
+    </div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="modal-btn modal-btn-save" onclick="saveEdit()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─── STATE ───────────────────────────────────────────────────────
+  let allFlights = [];
+  let audited = new Set();
+  let edits = {}; // { id: { stand, cinta, eta } }
+  let selectedHandlers = new Set();
+  let mode = 'escalas'; // 'escalas' | 'equipajes'
+  let editingId = null;
+
+  const HANDLERS = ['DC4','DD8','EJU','HU3','HS1','EXS','RYR','EWG'];
+  const HANDLER_NAMES = {
+    DC4: 'GroundForce', DD8: 'S.Europe', EJU: 'easyJet',
+    HU3: 'Menzies', HS1: 'Swissport', EXS: 'Jet2',
+    RYR: 'Azul', EWG: 'Eurowings'
+  };
+
+  // ─── CLOCK ───────────────────────────────────────────────────────
+  function updateClock() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
+
+  // ─── MODE ─────────────────────────────────────────────────────────
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btn-escalas').className = 'mode-btn' + (m === 'escalas' ? ' active-escalas' : '');
+    document.getElementById('btn-equipajes').className = 'mode-btn' + (m === 'equipajes' ? ' active-equipajes' : '');
+    renderFlights();
+  }
+
+  // ─── FILE HANDLING ────────────────────────────────────────────────
+  const uploadArea = document.getElementById('uploadArea');
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) processFile(file);
+  });
+
+  function handleFile(event) {
+    const file = event.target.files[0];
+    if (file) processFile(file);
+  }
+
+  function processFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const html = e.target.result;
+        parseESIA(html);
+      } catch(err) {
+        alert('Error leyendo el archivo: ' + err.message);
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function parseESIA(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const tables = doc.querySelectorAll('table');
+
+    let dataTable = null;
+    for (const t of tables) {
+      const headers = [...t.querySelectorAll('th')].map(th => th.textContent.trim());
+      if (headers.includes('Id Llegadas')) { dataTable = t; break; }
+    }
+    if (!dataTable) { alert('No se encontró la tabla de vuelos en el archivo.'); return; }
+
+    const rows = [...dataTable.querySelectorAll('tr')];
+    const headers = [...rows[0].querySelectorAll('th')].map(th => th.textContent.trim());
+
+    const idx = name => headers.indexOf(name);
+    // Column indices
+    const iVuelo = idx('Id Llegadas');
+    const iOrig = idx('Orig.');
+    const iSIBT = headers.lastIndexOf('SIBT'); // second SIBT = time
+    const iAIBT = idx('AIBT');
+    const iEta = idx('Eta');
+    const iHRam = idx('HRam');
+    const iMat = idx('Matricula');
+    const iStand = idx('Stand');
+    const iCinta = idx('Cinta');
+    const iEstado = idx('Estado');
+    const iTAeron = idx('TAeron');
+
+    allFlights = [];
+    for (let i = 1; i < rows.length; i++) {
+      const cells = [...rows[i].querySelectorAll('td')].map(td => td.textContent.trim().replace(/\s+/g,' '));
+      if (cells.length < 10) continue;
+      const vuelo = cells[iVuelo] || '';
+      if (!vuelo) continue;
+      const hram = cells[iHRam] || '';
+      if (!HANDLERS.includes(hram)) continue; // solo nuestros handlers
+
+      allFlights.push({
+        id: vuelo,
+        origen: cells[iOrig] || '',
+        hora: cells[iSIBT] || '', // scheduled time (HH:MM)
+        aibt: cells[iAIBT] || '',
+        eta: cells[iEta] || '',
+        handler: hram,
+        matricula: cells[iMat] || '—',
+        stand: cells[iStand] || '—',
+        cinta: cells[iCinta] || '—',
+        estado: cells[iEstado] || '',
+        taeron: cells[iTAeron] || '',
+      });
+    }
+
+    if (allFlights.length === 0) { alert('No se encontraron vuelos con handlers auditados.'); return; }
+
+    // Hide upload, show filters
+    document.getElementById('uploadArea').style.display = 'none';
+    document.getElementById('filtersSection').style.display = 'flex';
+    document.getElementById('statsBar').style.display = 'flex';
+
+    // Default: all handlers selected
+    selectedHandlers = new Set(HANDLERS.filter(h => allFlights.some(f => f.handler === h)));
+
+    buildHandlerChips();
+    setDefaultTimeRange();
+    renderFlights();
+  }
+
+  function setDefaultTimeRange() {
+    // Set from = now, to = now + 3h
+    const now = new Date();
+    const to = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    const fmt = d => d.toTimeString().slice(0,5);
+    document.getElementById('timeFrom').value = fmt(now);
+    document.getElementById('timeTo').value = fmt(to);
+  }
+
+  // ─── HANDLER CHIPS ─────────────────────────────────────────────────
+  function buildHandlerChips() {
+    const container = document.getElementById('handlerChips');
+    container.innerHTML = '';
+    const available = HANDLERS.filter(h => allFlights.some(f => f.handler === h));
+    available.forEach(h => {
+      const chip = document.createElement('button');
+      chip.className = `chip chip-${h} ${selectedHandlers.has(h) ? 'selected' : ''}`;
+      chip.textContent = h;
+      chip.title = HANDLER_NAMES[h];
+      chip.onclick = () => toggleHandler(h, chip);
+      container.appendChild(chip);
+    });
+  }
+
+  function toggleHandler(h, chip) {
+    if (selectedHandlers.has(h)) {
+      selectedHandlers.delete(h);
+      chip.classList.remove('selected');
+    } else {
+      selectedHandlers.add(h);
+      chip.classList.add('selected');
+    }
+    renderFlights();
+  }
+
+  // ─── RENDER ────────────────────────────────────────────────────────
+  function getFilteredFlights() {
+    const from = document.getElementById('timeFrom').value;
+    const to = document.getElementById('timeTo').value;
+
+    return allFlights.filter(f => {
+      if (!selectedHandlers.has(f.handler)) return false;
+      const ef = edits[f.id] || {};
+      const eta = ef.eta || f.eta || f.hora;
+      if (from && to && eta && eta !== '—') {
+        if (eta < from || eta > to) return false;
+      }
+      return true;
+    }).sort((a, b) => {
+      // Auditados siempre al final
+      const aAud = audited.has(a.id) ? 1 : 0;
+      const bAud = audited.has(b.id) ? 1 : 0;
+      if (aAud !== bAud) return aAud - bAud;
+      // Resto: orden cronológico puro por ETA/hora
+      const ea = edits[a.id] || {}, eb = edits[b.id] || {};
+      const etaA = ea.eta || a.eta || a.hora || '99:99';
+      const etaB = eb.eta || b.eta || b.hora || '99:99';
+      return etaA.localeCompare(etaB);
+    });
+  }
+
+  function renderFlights() {
+    const flights = getFilteredFlights();
+    const list = document.getElementById('flightList');
+    list.innerHTML = '';
+
+    // Stats
+    renderStats(flights);
+
+    if (flights.length === 0) {
+      list.innerHTML = `<div class="no-data-msg">Sin vuelos para los filtros seleccionados</div>`;
+      return;
+    }
+
+    // Find next (first non-audited, non-inblock or landing soon)
+    const nextIdx = flights.findIndex(f => !audited.has(f.id) && f.estado !== 'INBLOCK');
+
+    flights.forEach((f, i) => {
+      const ef = edits[f.id] || {};
+      const stand = ef.stand || f.stand;
+      const cinta = ef.cinta || f.cinta;
+      const eta = ef.eta || f.eta || f.hora;
+      const isAudited = audited.has(f.id);
+      const isNext = i === nextIdx && !isAudited;
+
+      const card = document.createElement('div');
+      card.className = `flight-card ${isNext ? 'next-flight' : ''} ${isAudited ? 'audited' : ''}`;
+
+      // Handler badge color
+      const hClass = `chip chip-${f.handler}`;
+
+      // Key field depends on mode
+      const keyLabel = mode === 'escalas' ? 'STAND / GATE' : 'CINTA';
+      const keyValue = mode === 'escalas' ? stand : cinta;
+      const keyClass = mode === 'escalas' ? 'gate-val' : 'cinta-val';
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="flight-num">${f.id}</div>
+          <div class="origin-tag">${f.origen}</div>
+          <span class="${hClass} selected" style="pointer-events:none">${f.handler}</span>
+        </div>
+        <div class="card-grid">
+          <div class="card-field">
+            <div class="field-label">ETA</div>
+            <div class="field-value eta editable" onclick="openModal('${f.id}')">${eta || '—'}</div>
+          </div>
+          <div class="card-field">
+            <div class="field-label">${keyLabel}</div>
+            <div class="field-value ${keyClass} editable" onclick="openModal('${f.id}')">${keyValue || '—'}</div>
+          </div>
+          <div class="card-field">
+            <div class="field-label">${mode === 'escalas' ? 'CINTA' : 'STAND'}</div>
+            <div class="field-value" style="color:var(--muted);font-size:13px">${mode === 'escalas' ? cinta : stand}</div>
+          </div>
+        </div>
+        <div class="card-bottom">
+          <span class="status-pill status-${f.estado}">${f.estado}</span>
+          <button class="audit-btn ${isAudited ? 'audit-btn-undo' : 'audit-btn-do'}"
+            onclick="toggleAudit('${f.id}')">
+            ${isAudited ? '↩ Deshacer' : '✓ Auditado'}
+          </button>
+        </div>
+        ${mode === 'escalas' ? `
+        <div class="mat-row">
+          <span class="mat-label">MATR.</span>
+          <button class="mat-btn" id="mat-${f.id}" onclick="copyMatricula('${f.id}')">
+            ${ef.matricula || f.matricula || '—'}
+          </button>
+          <button class="mat-edit" onclick="editMatricula('${f.id}')" title="Editar">✎</button>
+        </div>` : ''}
+      `;
+      list.appendChild(card);
+    });
+  }
+
+  function renderStats(flights) {
+    const bar = document.getElementById('statsBar');
+    const total = flights.length;
+    const done = flights.filter(f => audited.has(f.id)).length;
+    const pending = total - done;
+    const active = flights.filter(f => ['LANDED','FINAL','FIR','FLYING'].includes(f.estado)).length;
+
+    // Handler breakdown
+    const byHandler = {};
+    flights.forEach(f => {
+      if (!byHandler[f.handler]) byHandler[f.handler] = 0;
+      byHandler[f.handler]++;
+    });
+
+    let html = `
+      <div class="stat"><div class="stat-num">${pending}</div><div class="stat-label">Pendientes</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--green)">${done}</div><div class="stat-label">Auditados</div></div>
+      <div class="stat"><div class="stat-num" style="color:var(--yellow)">${active}</div><div class="stat-label">En vuelo</div></div>
+    `;
+    Object.entries(byHandler).forEach(([h, n]) => {
+      html += `<div class="stat"><div class="stat-num" style="font-size:14px">${n}</div><div class="stat-label">${h}</div></div>`;
+    });
+    bar.innerHTML = html;
+  }
+
+  // ─── AUDIT TOGGLE ─────────────────────────────────────────────────
+  function toggleAudit(id) {
+    if (audited.has(id)) audited.delete(id);
+    else audited.add(id);
+    renderFlights();
+  }
+
+  // ─── EDIT MODAL ────────────────────────────────────────────────────
+  function openModal(id) {
+    editingId = id;
+    const f = allFlights.find(x => x.id === id);
+    const ef = edits[id] || {};
+    document.getElementById('modalTitle').textContent = id + ' · ' + (f?.origen || '');
+    document.getElementById('modalInput').value = ef.stand || f?.stand || '';
+    document.getElementById('modalInputCinta').value = ef.cinta || f?.cinta || '';
+    document.getElementById('modalInputEta').value = ef.eta || f?.eta || f?.hora || '';
+    document.getElementById('modalOverlay').classList.add('open');
+    document.getElementById('modalInput').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    editingId = null;
+  }
+
+  function saveEdit() {
+    if (!editingId) return;
+    edits[editingId] = {
+      stand: document.getElementById('modalInput').value,
+      cinta: document.getElementById('modalInputCinta').value,
+      eta: document.getElementById('modalInputEta').value,
+    };
+    closeModal();
+    renderFlights();
+  }
+
+  // Close modal on overlay click
+  document.getElementById('modalOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // Enter to save
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && editingId) saveEdit();
+    if (e.key === 'Escape') closeModal();
+  });
+
+  // ─── MATRICULA COPY & EDIT ────────────────────────────────────────
+  function copyMatricula(id) {
+    const ef = edits[id] || {};
+    const f = allFlights.find(x => x.id === id);
+    const mat = ef.matricula || f?.matricula || '';
+    if (!mat || mat === '—') return;
+    navigator.clipboard.writeText(mat).then(() => {
+      const btn = document.getElementById('mat-' + id);
+      if (btn) {
+        const orig = btn.textContent.trim();
+        btn.classList.add('copied');
+        btn.textContent = '✓ Copiado';
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.textContent = orig;
+        }, 1800);
+      }
+    }).catch(() => {
+      // Fallback for older browsers
+      const ta = document.createElement('textarea');
+      ta.value = mat;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      const btn = document.getElementById('mat-' + id);
+      if (btn) {
+        btn.classList.add('copied');
+        btn.textContent = '✓ Copiado';
+        setTimeout(() => { btn.classList.remove('copied'); renderFlights(); }, 1800);
+      }
+    });
+  }
+
+  function editMatricula(id) {
+    const ef = edits[id] || {};
+    const f = allFlights.find(x => x.id === id);
+    const current = ef.matricula || f?.matricula || '';
+    const nueva = prompt('Matrícula para ' + id + ':', current);
+    if (nueva !== null) {
+      edits[id] = { ...(edits[id] || {}), matricula: nueva.toUpperCase().trim() };
+      renderFlights();
+    }
+  }
+
+  // Auto-refresh render every 30s (for clock-based next flight)
+  setInterval(() => { if (allFlights.length > 0) renderFlights(); }, 30000);
+</script>
+</body>
+</html>
