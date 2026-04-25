@@ -17,6 +17,7 @@
     --green: #007a3d;
     --yellow: #8a6000;
     --red: #cc0022;
+    --orange: #b45309;
     --text: #1a1a1a;
     --muted: #6b5e4a;
     --mono: 'JetBrains Mono', monospace;
@@ -101,6 +102,11 @@
   .flight-card.audited { opacity: 0.45; border-style: dashed; }
   .flight-card.audited::after { content: '✓ AUDITADO'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); font-size: 22px; font-weight: 800; color: var(--green); opacity: 0.25; pointer-events: none; font-family: var(--sans); }
 
+  /* Remoto: borde naranja llamativo */
+  .flight-card.remoto { border-left: 4px solid var(--orange); }
+  .flight-card.remoto .card-top-bar { background: rgba(180,83,9,0.08); margin: -12px -12px 10px -12px; padding: 5px 12px; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid rgba(180,83,9,0.2); border-radius: 10px 10px 0 0; }
+  .remoto-badge { font-size: 10px; font-weight: 700; color: var(--orange); letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px; }
+
   @keyframes pulse-border {
     0%, 100% { box-shadow: 0 0 0 2px rgba(0,85,204,0.15); }
     50% { box-shadow: 0 0 0 2px rgba(0,85,204,0.4), 0 0 20px rgba(0,85,204,0.15); }
@@ -110,12 +116,17 @@
   .flight-num { font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: 1px; flex: 1; }
   .origin-tag { font-size: 12px; color: var(--muted); font-weight: 600; }
 
-  .card-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  /* 4 columnas en modo escalas para incluir puerta */
+  .card-grid { display: grid; gap: 8px; margin-bottom: 10px; }
+  .card-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .card-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
   .card-field { display: flex; flex-direction: column; gap: 2px; }
   .field-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); }
   .field-value { font-size: 15px; font-weight: 700; color: var(--text); }
   .field-value.eta { color: var(--yellow); }
   .field-value.gate-val { color: var(--accent); }
+  .field-value.puerta-val { color: var(--orange); font-size: 13px; }
   .field-value.cinta-val { color: var(--accent2); }
   .field-value.editable { border-bottom: 1px dashed var(--muted); cursor: pointer; padding-bottom: 1px; }
   .field-value.editable:hover { border-color: var(--accent); color: var(--accent); }
@@ -247,6 +258,18 @@
     reader.readAsText(file, 'utf-8');
   }
 
+  // Detecta si un stand es remoto:
+  // - Número >= 100
+  // - Tiene letra al final (34B, 06A, etc.)
+  // - Empieza por letra (R-xx, etc.)
+  function isRemoto(stand) {
+    if (!stand || stand === '—') return false;
+    const s = stand.toString().trim();
+    if (/[A-Za-z]/.test(s)) return true;   // contiene letra → remoto
+    const n = parseInt(s, 10);
+    return !isNaN(n) && n >= 100;
+  }
+
   function parseESIA(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -259,17 +282,37 @@
     const rows = [...dataTable.querySelectorAll('tr')];
     const headers = [...rows[0].querySelectorAll('th')].map(th => th.textContent.trim());
     const idx = n => headers.indexOf(n);
-    const iVuelo=idx('Id Llegadas'), iOrig=idx('Orig.'), iSIBT=headers.lastIndexOf('SIBT'),
-          iEta=idx('Eta'), iHRam=idx('HRam'), iMat=idx('Matricula'),
-          iStand=idx('Stand'), iCinta=idx('Cinta'), iEstado=idx('Estado');
+
+    const iVuelo = idx('Id Llegadas'), iOrig = idx('Orig.'), iSIBT = headers.lastIndexOf('SIBT'),
+          iEta = idx('Eta'), iHRam = idx('HRam'), iMat = idx('Matricula'),
+          iStand = idx('Stand'), iCinta = idx('Cinta'), iEstado = idx('Estado');
+
+    // Puerta de embarque de salida — columna 'Puer.' en la parte de salidas
+    // En el listado combinado aparece en la segunda mitad de la tabla
+    // Buscamos el ÚLTIMO índice de 'Puer.' para coger el de salidas
+    const iPuer = headers.lastIndexOf('Puer.');
+
     allFlights = [];
     for (let i=1; i<rows.length; i++) {
       const cells = [...rows[i].querySelectorAll('td')].map(td => td.textContent.trim().replace(/\s+/g,' '));
       if (cells.length < 10) continue;
       const vuelo = cells[iVuelo] || ''; if (!vuelo) continue;
       const hram = cells[iHRam] || ''; if (!HANDLERS.includes(hram)) continue;
-      allFlights.push({ id:vuelo, origen:cells[iOrig]||'', hora:cells[iSIBT]||'', eta:cells[iEta]||'',
-        handler:hram, matricula:cells[iMat]||'—', stand:cells[iStand]||'—', cinta:cells[iCinta]||'—', estado:cells[iEstado]||'' });
+      const stand = cells[iStand] || '—';
+      const puer = iPuer >= 0 ? (cells[iPuer] || '—') : '—';
+      allFlights.push({
+        id: vuelo,
+        origen: cells[iOrig] || '',
+        hora: cells[iSIBT] || '',
+        eta: cells[iEta] || '',
+        handler: hram,
+        matricula: cells[iMat] || '—',
+        stand: stand,
+        cinta: cells[iCinta] || '—',
+        estado: cells[iEstado] || '',
+        puerta: puer,
+        remoto: isRemoto(stand)
+      });
     }
     if (allFlights.length === 0) { alert('No se encontraron vuelos con handlers auditados.'); return; }
     document.getElementById('uploadArea').style.display = 'none';
@@ -325,22 +368,55 @@
     if (!flights.length) { list.innerHTML='<div class="no-data-msg">Sin vuelos para los filtros seleccionados</div>'; return; }
     const nextIdx = flights.findIndex(f => !audited.has(f.id) && f.estado!=='INBLOCK');
     flights.forEach((f,i) => {
-      const ef=edits[f.id]||{}, stand=ef.stand||f.stand, cinta=ef.cinta||f.cinta, eta=ef.eta||f.eta||f.hora;
-      const isAudited=audited.has(f.id), isNext=i===nextIdx&&!isAudited;
+      const ef = edits[f.id] || {};
+      const stand = ef.stand || f.stand;
+      const cinta = ef.cinta || f.cinta;
+      const eta = ef.eta || f.eta || f.hora;
+      const puerta = ef.puerta || f.puerta || '—';
+      // Recalcular remoto si el stand fue editado
+      const remoto = ef.stand ? isRemoto(ef.stand) : f.remoto;
+      const isAudited = audited.has(f.id), isNext = i===nextIdx && !isAudited;
+
       const card = document.createElement('div');
-      card.className = `flight-card ${isNext?'next-flight':''} ${isAudited?'audited':''}`;
-      const keyLabel=mode==='escalas'?'STAND / GATE':'CINTA', keyValue=mode==='escalas'?stand:cinta, keyClass=mode==='escalas'?'gate-val':'cinta-val';
+      card.className = `flight-card ${isNext?'next-flight':''} ${isAudited?'audited':''} ${remoto?'remoto':''}`;
+
+      // Barra de alerta remoto (solo en modo escalas)
+      const remotoBanner = (mode === 'escalas' && remoto)
+        ? `<div class="card-top-bar"><span class="remoto-badge">🚌 STAND REMOTO · embarque ${puerta}</span></div>`
+        : '';
+
+      const keyLabel = mode==='escalas' ? 'STAND' : 'CINTA';
+      const keyValue = mode==='escalas' ? stand : cinta;
+      const keyClass = mode==='escalas' ? 'gate-val' : 'cinta-val';
+
+      // En modo escalas: 4 columnas (ETA, STAND, PUERTA, CINTA)
+      // En modo equipajes: 3 columnas (ETA, CINTA, STAND) — igual que antes
+      let gridHTML = '';
+      if (mode === 'escalas') {
+        gridHTML = `
+          <div class="card-grid card-grid-4">
+            <div class="card-field"><div class="field-label">ETA</div><div class="field-value eta editable" onclick="openModal('${f.id}')">${eta||'—'}</div></div>
+            <div class="card-field"><div class="field-label">STAND</div><div class="field-value gate-val editable" onclick="openModal('${f.id}')">${stand||'—'}</div></div>
+            <div class="card-field"><div class="field-label">PUERTA</div><div class="field-value ${remoto?'puerta-val':''}" style="${!remoto?'color:var(--muted);font-size:13px':'font-size:13px'}">${puerta}</div></div>
+            <div class="card-field"><div class="field-label">CINTA</div><div class="field-value" style="color:var(--muted);font-size:13px">${cinta}</div></div>
+          </div>`;
+      } else {
+        gridHTML = `
+          <div class="card-grid card-grid-3">
+            <div class="card-field"><div class="field-label">ETA</div><div class="field-value eta editable" onclick="openModal('${f.id}')">${eta||'—'}</div></div>
+            <div class="card-field"><div class="field-label">CINTA</div><div class="field-value cinta-val editable" onclick="openModal('${f.id}')">${cinta||'—'}</div></div>
+            <div class="card-field"><div class="field-label">STAND</div><div class="field-value" style="color:var(--muted);font-size:13px">${stand}</div></div>
+          </div>`;
+      }
+
       card.innerHTML = `
+        ${remotoBanner}
         <div class="card-top">
           <div class="flight-num">${f.id}</div>
           <div class="origin-tag">${f.origen}</div>
           <span class="chip chip-${f.handler} selected" style="pointer-events:none">${f.handler}</span>
         </div>
-        <div class="card-grid">
-          <div class="card-field"><div class="field-label">ETA</div><div class="field-value eta editable" onclick="openModal('${f.id}')">${eta||'—'}</div></div>
-          <div class="card-field"><div class="field-label">${keyLabel}</div><div class="field-value ${keyClass} editable" onclick="openModal('${f.id}')">${keyValue||'—'}</div></div>
-          <div class="card-field"><div class="field-label">${mode==='escalas'?'CINTA':'STAND'}</div><div class="field-value" style="color:var(--muted);font-size:13px">${mode==='escalas'?cinta:stand}</div></div>
-        </div>
+        ${gridHTML}
         <div class="card-bottom">
           <span class="status-pill status-${f.estado}">${f.estado}</span>
           <button class="audit-btn ${isAudited?'audit-btn-undo':'audit-btn-do'}" onclick="toggleAudit('${f.id}')">${isAudited?'↩ Deshacer':'✓ Auditado'}</button>
@@ -354,10 +430,13 @@
   function renderStats(flights) {
     const done=flights.filter(f=>audited.has(f.id)).length, pending=flights.length-done;
     const active=flights.filter(f=>['LANDED','FINAL','FIR','FLYING'].includes(f.estado)).length;
+    const remotos=flights.filter(f=>f.remoto && !audited.has(f.id)).length;
     const byH={}; flights.forEach(f=>{if(!byH[f.handler])byH[f.handler]=0;byH[f.handler]++;});
-    let html=`<div class="stat"><div class="stat-num">${pending}</div><div class="stat-label">Pendientes</div></div>
+    let html=`
+      <div class="stat"><div class="stat-num">${pending}</div><div class="stat-label">Pendientes</div></div>
       <div class="stat"><div class="stat-num" style="color:var(--green)">${done}</div><div class="stat-label">Auditados</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--yellow)">${active}</div><div class="stat-label">En vuelo</div></div>`;
+      <div class="stat"><div class="stat-num" style="color:var(--yellow)">${active}</div><div class="stat-label">En vuelo</div></div>
+      ${remotos>0?`<div class="stat"><div class="stat-num" style="color:var(--orange)">${remotos}</div><div class="stat-label">🚌 Remotos</div></div>`:''}`;
     Object.entries(byH).forEach(([h,n])=>{html+=`<div class="stat"><div class="stat-num" style="font-size:14px">${n}</div><div class="stat-label">${h}</div></div>`;});
     document.getElementById('statsBar').innerHTML = html;
   }
